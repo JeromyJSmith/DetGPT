@@ -40,7 +40,7 @@ def renorm(
 ) -> torch.FloatTensor:
     # img: tensor(3,H,W) or tensor(B,3,H,W)
     # return: same as img
-    assert img.dim() == 3 or img.dim() == 4, "img.dim() should be 3 or 4 but %d" % img.dim()
+    assert img.dim() in [3, 4], "img.dim() should be 3 or 4 but %d" % img.dim()
     if img.dim() == 3:
         assert img.size(0) == 3, 'img.size(0) shoule be 3 but "%d". (%s)' % (
             img.size(0),
@@ -166,7 +166,7 @@ def to_device(item, device):
         return {k: to_device(v, device) for k, v in item.items()}
     else:
         raise NotImplementedError(
-            "Call Shilong if you use other containers! type: {}".format(type(item))
+            f"Call Shilong if you use other containers! type: {type(item)}"
         )
 
 
@@ -193,8 +193,7 @@ def get_gaussian_mean(x, axis, other_axis, softmax=True):
     batch = x.shape[0]
     channel = x.shape[1]
     index = ind.repeat([batch, channel, 1])
-    mean_position = torch.sum(index * u, dim=2)
-    return mean_position
+    return torch.sum(index * u, dim=2)
 
 
 def get_expected_points_from_map(hm, softmax=True):
@@ -319,7 +318,7 @@ def get_raw_dict(args):
     elif isinstance(args, SLConfig):
         return args._cfg_dict
     else:
-        raise NotImplementedError("Unknown type {}".format(type(args)))
+        raise NotImplementedError(f"Unknown type {type(args)}")
 
 
 def stat_tensors(tensor):
@@ -466,8 +465,7 @@ def random_boxes(num=1, scale=1, rng=None):
     tlbr[:, 2] = br_x * scale
     tlbr[:, 3] = br_y * scale
 
-    boxes = torch.from_numpy(tlbr)
-    return boxes
+    return torch.from_numpy(tlbr)
 
 
 class ModelEma(torch.nn.Module):
@@ -523,7 +521,7 @@ class BestMetricSingle:
         return False
 
     def __str__(self) -> str:
-        return "best_res: {}\t best_ep: {}".format(self.best_res, self.best_ep)
+        return f"best_res: {self.best_res}\t best_ep: {self.best_ep}"
 
     def __repr__(self) -> str:
         return self.__str__()
@@ -547,25 +545,23 @@ class BestMetricHolder:
         """
         return if the results is the best.
         """
-        if not self.use_ema:
-            return self.best_all.update(new_res, epoch)
-        else:
+        if self.use_ema:
             if is_ema:
                 self.best_ema.update(new_res, epoch)
-                return self.best_all.update(new_res, epoch)
             else:
                 self.best_regular.update(new_res, epoch)
-                return self.best_all.update(new_res, epoch)
+
+        return self.best_all.update(new_res, epoch)
 
     def summary(self):
         if not self.use_ema:
             return self.best_all.summary()
 
-        res = {}
-        res.update({f"all_{k}": v for k, v in self.best_all.summary().items()})
-        res.update({f"regular_{k}": v for k, v in self.best_regular.summary().items()})
-        res.update({f"ema_{k}": v for k, v in self.best_ema.summary().items()})
-        return res
+        return (
+            {f"all_{k}": v for k, v in self.best_all.summary().items()}
+            | {f"regular_{k}": v for k, v in self.best_regular.summary().items()}
+            | {f"ema_{k}": v for k, v in self.best_ema.summary().items()}
+        )
 
     def __repr__(self) -> str:
         return json.dumps(self.summary(), indent=2)

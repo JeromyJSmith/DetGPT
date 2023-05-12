@@ -64,9 +64,7 @@ class SmoothedValue(object):
     @property
     def median(self):
         d = torch.tensor(list(self.deque))
-        if d.shape[0] == 0:
-            return 0
-        return d.median().item()
+        return 0 if d.shape[0] == 0 else d.median().item()
 
     @property
     def avg(self):
@@ -75,10 +73,7 @@ class SmoothedValue(object):
 
     @property
     def global_avg(self):
-        if os.environ.get("SHILONG_AMP", None) == "1":
-            eps = 1e-4
-        else:
-            eps = 1e-6
+        eps = 1e-4 if os.environ.get("SHILONG_AMP", None) == "1" else 1e-6
         return self.total / (self.count + eps)
 
     @property
@@ -146,12 +141,10 @@ def all_gather_cpu(data):
     assert isinstance(local_size.item(), int)
     local_size = int(local_size.item())
 
-    # receiving Tensor from all ranks
-    # we pad the tensor because torch all_gather does not support
-    # gathering tensors of different shapes
-    tensor_list = []
-    for _ in size_list:
-        tensor_list.append(torch.empty((max_size,), dtype=torch.uint8, device=device))
+    tensor_list = [
+        torch.empty((max_size,), dtype=torch.uint8, device=device)
+        for _ in size_list
+    ]
     if local_size != max_size:
         padding = torch.empty(size=(max_size - local_size,), dtype=torch.uint8, device=device)
         tensor = torch.cat((tensor, padding), dim=0)
@@ -198,12 +191,10 @@ def all_gather(data):
     size_list = [int(size.item()) for size in size_list]
     max_size = max(size_list)
 
-    # receiving Tensor from all ranks
-    # we pad the tensor because torch all_gather does not support
-    # gathering tensors of different shapes
-    tensor_list = []
-    for _ in size_list:
-        tensor_list.append(torch.empty((max_size,), dtype=torch.uint8, device="cuda"))
+    tensor_list = [
+        torch.empty((max_size,), dtype=torch.uint8, device="cuda")
+        for _ in size_list
+    ]
     if local_size != max_size:
         padding = torch.empty(size=(max_size - local_size,), dtype=torch.uint8, device="cuda")
         tensor = torch.cat((tensor, padding), dim=0)
@@ -240,7 +231,7 @@ def reduce_dict(input_dict, average=True):
         dist.all_reduce(values)
         if average:
             values /= world_size
-        reduced_dict = {k: v for k, v in zip(names, values)}
+        reduced_dict = dict(zip(names, values))
     return reduced_dict
 
 
@@ -261,15 +252,16 @@ class MetricLogger(object):
             return self.meters[attr]
         if attr in self.__dict__:
             return self.__dict__[attr]
-        raise AttributeError("'{}' object has no attribute '{}'".format(type(self).__name__, attr))
+        raise AttributeError(
+            f"'{type(self).__name__}' object has no attribute '{attr}'"
+        )
 
     def __str__(self):
-        loss_str = []
-        for name, meter in self.meters.items():
-            # print(name, str(meter))
-            # import ipdb;ipdb.set_trace()
-            if meter.count > 0:
-                loss_str.append("{}: {}".format(name, str(meter)))
+        loss_str = [
+            f"{name}: {str(meter)}"
+            for name, meter in self.meters.items()
+            if meter.count > 0
+        ]
         return self.delimiter.join(loss_str)
 
     def synchronize_between_processes(self):
@@ -280,19 +272,14 @@ class MetricLogger(object):
         self.meters[name] = meter
 
     def log_every(self, iterable, print_freq, header=None, logger=None):
-        if logger is None:
-            print_func = print
-        else:
-            print_func = logger.info
-
-        i = 0
+        print_func = print if logger is None else logger.info
         if not header:
             header = ""
         start_time = time.time()
         end = time.time()
         iter_time = SmoothedValue(fmt="{avg:.4f}")
         data_time = SmoothedValue(fmt="{avg:.4f}")
-        space_fmt = ":" + str(len(str(len(iterable)))) + "d"
+        space_fmt = f":{len(str(len(iterable)))}d"
         if torch.cuda.is_available():
             log_msg = self.delimiter.join(
                 [
@@ -317,7 +304,7 @@ class MetricLogger(object):
                 ]
             )
         MB = 1024.0 * 1024.0
-        for obj in iterable:
+        for i, obj in enumerate(iterable):
             data_time.update(time.time() - end)
             yield obj
             # import ipdb; ipdb.set_trace()
@@ -348,7 +335,6 @@ class MetricLogger(object):
                             data=str(data_time),
                         )
                     )
-            i += 1
             end = time.time()
         total_time = time.time() - start_time
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))
@@ -408,9 +394,7 @@ class NestedTensor(object):
                 self.mask = self.mask.sum(1).to(bool)
             else:
                 raise ValueError(
-                    "tensors dim must be 3 or 4 but {}({})".format(
-                        self.tensors.dim(), self.tensors.shape
-                    )
+                    f"tensors dim must be 3 or 4 but {self.tensors.dim()}({self.tensors.shape})"
                 )
 
     def imgsize(self):
@@ -434,11 +418,10 @@ class NestedTensor(object):
         return NestedTensor(cast_tensor, cast_mask)
 
     def to_img_list_single(self, tensor, mask):
-        assert tensor.dim() == 3, "dim of tensor should be 3 but {}".format(tensor.dim())
+        assert tensor.dim() == 3, f"dim of tensor should be 3 but {tensor.dim()}"
         maxH = (~mask).sum(0).max()
         maxW = (~mask).sum(1).max()
-        img = tensor[:, :maxH, :maxW]
-        return img
+        return tensor[:, :maxH, :maxW]
 
     def to_img_list(self):
         """remove the padding and convert to img list
@@ -448,13 +431,12 @@ class NestedTensor(object):
         """
         if self.tensors.dim() == 3:
             return self.to_img_list_single(self.tensors, self.mask)
-        else:
-            res = []
-            for i in range(self.tensors.shape[0]):
-                tensor_i = self.tensors[i]
-                mask_i = self.mask[i]
-                res.append(self.to_img_list_single(tensor_i, mask_i))
-            return res
+        res = []
+        for i in range(self.tensors.shape[0]):
+            tensor_i = self.tensors[i]
+            mask_i = self.mask[i]
+            res.append(self.to_img_list_single(tensor_i, mask_i))
+        return res
 
     @property
     def device(self):
@@ -472,27 +454,25 @@ class NestedTensor(object):
 
 
 def nested_tensor_from_tensor_list(tensor_list: List[Tensor]):
-    # TODO make this more general
-    if tensor_list[0].ndim == 3:
-        if torchvision._is_tracing():
-            # nested_tensor_from_tensor_list() does not export well to ONNX
-            # call _onnx_nested_tensor_from_tensor_list() instead
-            return _onnx_nested_tensor_from_tensor_list(tensor_list)
-
-        # TODO make it support different-sized images
-        max_size = _max_by_axis([list(img.shape) for img in tensor_list])
-        # min_size = tuple(min(s) for s in zip(*[img.shape for img in tensor_list]))
-        batch_shape = [len(tensor_list)] + max_size
-        b, c, h, w = batch_shape
-        dtype = tensor_list[0].dtype
-        device = tensor_list[0].device
-        tensor = torch.zeros(batch_shape, dtype=dtype, device=device)
-        mask = torch.ones((b, h, w), dtype=torch.bool, device=device)
-        for img, pad_img, m in zip(tensor_list, tensor, mask):
-            pad_img[: img.shape[0], : img.shape[1], : img.shape[2]].copy_(img)
-            m[: img.shape[1], : img.shape[2]] = False
-    else:
+    if tensor_list[0].ndim != 3:
         raise ValueError("not supported")
+    if torchvision._is_tracing():
+        # nested_tensor_from_tensor_list() does not export well to ONNX
+        # call _onnx_nested_tensor_from_tensor_list() instead
+        return _onnx_nested_tensor_from_tensor_list(tensor_list)
+
+    # TODO make it support different-sized images
+    max_size = _max_by_axis([list(img.shape) for img in tensor_list])
+    # min_size = tuple(min(s) for s in zip(*[img.shape for img in tensor_list]))
+    batch_shape = [len(tensor_list)] + max_size
+    b, c, h, w = batch_shape
+    dtype = tensor_list[0].dtype
+    device = tensor_list[0].device
+    tensor = torch.zeros(batch_shape, dtype=dtype, device=device)
+    mask = torch.ones((b, h, w), dtype=torch.bool, device=device)
+    for img, pad_img, m in zip(tensor_list, tensor, mask):
+        pad_img[: img.shape[0], : img.shape[1], : img.shape[2]].copy_(img)
+        m[: img.shape[1], : img.shape[2]] = False
     return NestedTensor(tensor, mask)
 
 
@@ -546,23 +526,15 @@ def setup_for_distributed(is_master):
 
 
 def is_dist_avail_and_initialized():
-    if not dist.is_available():
-        return False
-    if not dist.is_initialized():
-        return False
-    return True
+    return False if not dist.is_available() else bool(dist.is_initialized())
 
 
 def get_world_size():
-    if not is_dist_avail_and_initialized():
-        return 1
-    return dist.get_world_size()
+    return 1 if not is_dist_avail_and_initialized() else dist.get_world_size()
 
 
 def get_rank():
-    if not is_dist_avail_and_initialized():
-        return 0
-    return dist.get_rank()
+    return 0 if not is_dist_avail_and_initialized() else dist.get_rank()
 
 
 def is_main_process():
@@ -592,9 +564,7 @@ def init_distributed_mode(args):
         # args.gpu = args.local_rank = int(os.environ['LOCAL_RANK'])
         # args.rank = args.rank * local_world_size + args.local_rank
         print(
-            "world size: {}, rank: {}, local rank: {}".format(
-                args.world_size, args.rank, args.local_rank
-            )
+            f"world size: {args.world_size}, rank: {args.rank}, local rank: {args.local_rank}"
         )
         print(json.dumps(dict(os.environ), indent=2))
     elif "SLURM_PROCID" in os.environ:
@@ -603,9 +573,7 @@ def init_distributed_mode(args):
         args.world_size = int(os.environ["SLURM_NPROCS"])
 
         print(
-            "world size: {}, world rank: {}, local rank: {}, device_count: {}".format(
-                args.world_size, args.rank, args.local_rank, torch.cuda.device_count()
-            )
+            f"world size: {args.world_size}, world rank: {args.rank}, local rank: {args.local_rank}, device_count: {torch.cuda.device_count()}"
         )
     else:
         print("Not using distributed mode")
@@ -615,11 +583,13 @@ def init_distributed_mode(args):
         args.local_rank = 0
         return
 
-    print("world_size:{} rank:{} local_rank:{}".format(args.world_size, args.rank, args.local_rank))
+    print(
+        f"world_size:{args.world_size} rank:{args.rank} local_rank:{args.local_rank}"
+    )
     args.distributed = True
     torch.cuda.set_device(args.local_rank)
     args.dist_backend = "nccl"
-    print("| distributed init (rank {}): {}".format(args.rank, args.dist_url), flush=True)
+    print(f"| distributed init (rank {args.rank}): {args.dist_url}", flush=True)
 
     torch.distributed.init_process_group(
         backend=args.dist_backend,
@@ -662,8 +632,7 @@ def accuracy_onehot(pred, gt):
         gt (_type_): n, c
     """
     tp = ((pred - gt).abs().sum(-1) < 1e-4).float().sum()
-    acc = tp / gt.shape[0] * 100
-    return acc
+    return tp / gt.shape[0] * 100
 
 
 def interpolate(input, size=None, scale_factor=None, mode="nearest", align_corners=None):
@@ -673,15 +642,14 @@ def interpolate(input, size=None, scale_factor=None, mode="nearest", align_corne
     This will eventually be supported natively by PyTorch, and this
     class can go away.
     """
-    if __torchvision_need_compat_flag < 0.7:
-        if input.numel() > 0:
-            return torch.nn.functional.interpolate(input, size, scale_factor, mode, align_corners)
-
-        output_shape = _output_size(2, input, size, scale_factor)
-        output_shape = list(input.shape[:-2]) + list(output_shape)
-        return _new_empty_tensor(input, output_shape)
-    else:
+    if __torchvision_need_compat_flag >= 0.7:
         return torchvision.ops.misc.interpolate(input, size, scale_factor, mode, align_corners)
+    if input.numel() > 0:
+        return torch.nn.functional.interpolate(input, size, scale_factor, mode, align_corners)
+
+    output_shape = _output_size(2, input, size, scale_factor)
+    output_shape = list(input.shape[:-2]) + list(output_shape)
+    return _new_empty_tensor(input, output_shape)
 
 
 class color_sys:
@@ -693,7 +661,10 @@ class color_sys:
             lightness = (50 + np.random.rand() * 10) / 100.0
             saturation = (90 + np.random.rand() * 10) / 100.0
             colors.append(
-                tuple([int(j * 255) for j in colorsys.hls_to_rgb(hue, lightness, saturation)])
+                tuple(
+                    int(j * 255)
+                    for j in colorsys.hls_to_rgb(hue, lightness, saturation)
+                )
             )
         self.colors = colors
 

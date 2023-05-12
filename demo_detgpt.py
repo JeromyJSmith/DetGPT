@@ -39,16 +39,15 @@ def parse_args():
     )
     parser.add_argument("--disable_detector", action="store_true", help="using detector mode")
     parser.add_argument("--enable_system", action="store_true", help="editable system message mode")
-    args = parser.parse_args()
-    return args
+    return parser.parse_args()
 
 
 args = parse_args()
 print('Initializing Chat')
 cfg = Config(args)
 
-cuda_llm = f"cuda:1"
-cuda_detector = f"cuda:0"
+cuda_llm = "cuda:1"
+cuda_detector = "cuda:0"
 ckpt_repo_id = "ShilongLiu/GroundingDINO"
 if args.dino_version == "swinb":
     config_file = "GroundingDINO/groundingdino/config/GroundingDINO_SwinB_cfg.py"
@@ -86,7 +85,7 @@ def load_model_hf(model_config_path, repo_id, filename, device='cpu'):
     cache_file = hf_hub_download(repo_id=repo_id, filename=filename)
     checkpoint = torch.load(cache_file, map_location='cpu')
     log = model.load_state_dict(clean_state_dict(checkpoint['model']), strict=False)
-    print("Model loaded from {} \n => {}".format(cache_file, log))
+    print(f"Model loaded from {cache_file} \n => {log}")
     _ = model.eval()
     return model
 
@@ -110,7 +109,7 @@ def image_transform_grounding_for_vis(init_image):
 
 
 def print_format(message):
-    print(f"*" * 20)
+    print("*" * 20)
     print(f"\n{message}\n")
 
 
@@ -136,7 +135,7 @@ def run_grounding(input_image, llm_message_original, box_threshold, text_thresho
     match2 = re.search(pattern2, response_message)
     # Extract the matched substring
     if match1:
-        substr = match1.group(0)
+        substr = match1[0]
         # Remove the unnecessary characters
         substr = re.sub(r"(?i)therefore,?\s+the\s+answer\s+is:?[\s\[\],]*", "", substr)
         categories = re.sub(r"[\[\]]", "", substr)
@@ -147,7 +146,7 @@ def run_grounding(input_image, llm_message_original, box_threshold, text_thresho
         # Print the result
         print_format(f"Detected categores: {categories}")
     elif match2:
-        substr = match2.group(0)
+        substr = match2[0]
         # Remove the unnecessary characters
         substr = re.sub(r"(?i)therefore,?\s+the\s+target\s+objects?\s+are:?[\s\[\],]*", "", substr)
         categories = re.sub(r"[\[\]]", "", substr)
@@ -190,7 +189,7 @@ def setup_seeds(config):
 detector = load_model_hf(config_file, ckpt_repo_id, ckpt_filenmae)
 # detector = detector.to(f"cuda:{args.gpu_id[0]}")
 detector = detector.to(cuda_detector)
-print_format(f"loaded detector")
+print_format("loaded detector")
 ### language model
 model_config = cfg.model_cfg
 model_config.device_8bit = cuda_llm
@@ -224,12 +223,8 @@ def upload_img(gr_img, text_input, chat_state, system_prompt=None):
     if gr_img is None:
         return None, None, gr.update(interactive=True), chat_state, None
     chat_state = CONV_VISION.copy()
-    if system_prompt is not None:
-        chat_state.system = system_prompt
-        print(f"system prompt: {chat_state.system}")
-    else:
-        chat_state.system = system_message
-        print(f"system prompt: {chat_state.system}")
+    chat_state.system = system_message if system_prompt is None else system_prompt
+    print(f"system prompt: {chat_state.system}")
     img_list = []
     llm_message = chat.upload_img(gr_img, chat_state, img_list)
     return gr.update(interactive=False), gr.update(interactive=True, placeholder='Type and press Enter'), gr.update(

@@ -149,7 +149,7 @@ class Transformer(nn.Module):
         self.num_queries = num_queries  # useful for single stage model only
         self.num_patterns = num_patterns
         if not isinstance(num_patterns, int):
-            Warning("num_patterns should be int but {}".format(type(num_patterns)))
+            Warning(f"num_patterns should be int but {type(num_patterns)}")
             self.num_patterns = 0
 
         if num_feature_levels > 1:
@@ -169,9 +169,10 @@ class Transformer(nn.Module):
 
         # for two stage
         self.two_stage_type = two_stage_type
-        assert two_stage_type in ["no", "standard"], "unknown param {} of two_stage_type".format(
-            two_stage_type
-        )
+        assert two_stage_type in [
+            "no",
+            "standard",
+        ], f"unknown param {two_stage_type} of two_stage_type"
         if two_stage_type == "standard":
             # anchor selection at the output of encoder
             self.enc_output = nn.Linear(d_model, d_model)
@@ -202,8 +203,7 @@ class Transformer(nn.Module):
         valid_W = torch.sum(~mask[:, 0, :], 1)
         valid_ratio_h = valid_H.float() / H
         valid_ratio_w = valid_W.float() / W
-        valid_ratio = torch.stack([valid_ratio_w, valid_ratio_h], -1)
-        return valid_ratio
+        return torch.stack([valid_ratio_w, valid_ratio_h], -1)
 
     def init_ref_points(self, use_num_queries):
         self.refpoint_embed = nn.Embedding(use_num_queries, 4)
@@ -351,7 +351,7 @@ class Transformer(nn.Module):
             init_box_proposal = refpoint_embed_.sigmoid()
 
         else:
-            raise NotImplementedError("unknown two_stage_type {}".format(self.two_stage_type))
+            raise NotImplementedError(f"unknown two_stage_type {self.two_stage_type}")
         #########################################################
         # End preparing tgt
         # - tgt: bs, NQ, d_model
@@ -607,16 +607,13 @@ class TransformerDecoder(nn.Module):
         num_feature_levels=1,
     ):
         super().__init__()
-        if num_layers > 0:
-            self.layers = _get_clones(decoder_layer, num_layers)
-        else:
-            self.layers = []
+        self.layers = _get_clones(decoder_layer, num_layers) if num_layers > 0 else []
         self.num_layers = num_layers
         self.norm = norm
         self.return_intermediate = return_intermediate
         assert return_intermediate, "support return_intermediate only"
         self.query_dim = query_dim
-        assert query_dim in [2, 4], "query_dim should be 2/4 but {}".format(query_dim)
+        assert query_dim in [2, 4], f"query_dim should be 2/4 but {query_dim}"
         self.num_feature_levels = num_feature_levels
 
         self.ref_point_head = MLP(query_dim // 2 * d_model, d_model, d_model, 2)

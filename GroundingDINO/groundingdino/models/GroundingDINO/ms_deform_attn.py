@@ -34,7 +34,7 @@ except:
 # helpers
 def _is_power_of_2(n):
     if (not isinstance(n, int)) or (n < 0):
-        raise ValueError("invalid input for _is_power_of_2: {} (type: {})".format(n, type(n)))
+        raise ValueError(f"invalid input for _is_power_of_2: {n} (type: {type(n)})")
     return (n & (n - 1) == 0) and n != 0
 
 
@@ -163,9 +163,7 @@ class MultiScaleDeformableAttention(nn.Module):
         super().__init__()
         if embed_dim % num_heads != 0:
             raise ValueError(
-                "embed_dim must be divisible by num_heads, but got {} and {}".format(
-                    embed_dim, num_heads
-                )
+                f"embed_dim must be divisible by num_heads, but got {embed_dim} and {num_heads}"
             )
         head_dim = embed_dim // num_heads
 
@@ -322,11 +320,9 @@ class MultiScaleDeformableAttention(nn.Module):
             )
         else:
             raise ValueError(
-                "Last dim of reference_points must be 2 or 4, but get {} instead.".format(
-                    reference_points.shape[-1]
-                )
+                f"Last dim of reference_points must be 2 or 4, but get {reference_points.shape[-1]} instead."
             )
-    
+
         if torch.cuda.is_available() and value.is_cuda:
             halffloat = False
             if value.dtype == torch.float16:
@@ -371,14 +367,17 @@ def create_dummy_class(klass, dependency, message=""):
     Returns:
         class: a class object
     """
-    err = "Cannot import '{}', therefore '{}' is not available.".format(dependency, klass)
+    err = f"Cannot import '{dependency}', therefore '{klass}' is not available."
     if message:
-        err = err + " " + message
+        err = f"{err} {message}"
+
+
 
     class _DummyMetaClass(type):
         # throw error on class attribute access
-        def __getattr__(_, __):  # noqa: B902
+        def __getattr__(self, __):  # noqa: B902
             raise ImportError(err)
+
 
     class _Dummy(object, metaclass=_DummyMetaClass):
         # throw error on constructor
@@ -402,7 +401,7 @@ def create_dummy_func(func, dependency, message=""):
     """
     err = "Cannot import '{}', therefore '{}' is not available.".format(dependency, func)
     if message:
-        err = err + " " + message
+        err = f"{err} {message}"
 
     if isinstance(dependency, (list, tuple)):
         dependency = ",".join(dependency)

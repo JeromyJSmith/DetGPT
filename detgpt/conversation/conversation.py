@@ -33,19 +33,13 @@ class Conversation:
         if self.sep_style == SeparatorStyle.SINGLE:
             ret = self.system + self.sep
             for role, message in self.messages:
-                if message:
-                    ret += role + ": " + message + self.sep
-                else:
-                    ret += role + ":"
+                ret += f"{role}: {message}{self.sep}" if message else f"{role}:"
             return ret
         elif self.sep_style == SeparatorStyle.TWO:
             seps = [self.sep, self.sep2]
             ret = self.system + seps[0]
             for i, (role, message) in enumerate(self.messages):
-                if message:
-                    ret += role + ": " + message + seps[i % 2]
-                else:
-                    ret += role + ":"
+                ret += f"{role}: {message}{seps[i % 2]}" if message else f"{role}:"
             return ret
         else:
             raise ValueError(f"Invalid style: {self.sep_style}")
@@ -94,11 +88,10 @@ class StoppingCriteriaSub(StoppingCriteria):
         self.stops = stops
 
     def __call__(self, input_ids: torch.LongTensor, scores: torch.FloatTensor):
-        for stop in self.stops:
-            if torch.all((stop == input_ids[0][-len(stop):])).item():
-                return True
-
-        return False
+        return any(
+            torch.all((stop == input_ids[0][-len(stop) :])).item()
+            for stop in self.stops
+        )
 
 class Chat:
     def __init__(self, model, vis_processor, device='cuda:0'):
@@ -167,8 +160,7 @@ class Chat:
         image_emb, _ = self.model.encode_img(image)
         img_list.append(image_emb)
         conv.append_message(conv.roles[0], "<Img><ImageHere></Img>")
-        msg = "Received."
-        return msg
+        return "Received."
 
     def get_context_emb(self, conv, img_list):
         prompt = conv.get_prompt()

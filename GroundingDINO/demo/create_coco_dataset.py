@@ -20,16 +20,14 @@ def main(
     ):
 
     model = load_model(config_path, weights_path)
-    
+
     dataset = fo.Dataset.from_images_dir(image_directory)
 
     samples = []
 
-    if subsample is not None: 
-        
-        if subsample < len(dataset):
-            dataset = dataset.take(subsample).clone()
-    
+    if subsample is not None and subsample < len(dataset):
+        dataset = dataset.take(subsample).clone()
+
     for sample in tqdm(dataset):
 
         image_source, image = load_image(sample.filepath)
@@ -63,14 +61,14 @@ def main(
     if view_dataset:
         session = fo.launch_app(dataset)
         session.wait()
-        
+
     # exports COCO dataset ready for training
     if export_dataset:
         dataset.export(
             'coco_dataset',
             dataset_type=fo.types.COCODetectionDataset,
         )
-        
+
     # saves bounding boxes plotted on the input images to disk
     if export_annotated_images:
         dataset.draw_labels(

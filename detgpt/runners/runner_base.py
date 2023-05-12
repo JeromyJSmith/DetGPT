@@ -130,9 +130,7 @@ class RunnerBase:
 
     @property
     def scaler(self):
-        amp = self.config.run_cfg.get("amp", False)
-
-        if amp:
+        if amp := self.config.run_cfg.get("amp", False):
             if self._scaler is None:
                 self._scaler = torch.cuda.amp.GradScaler()
 
@@ -212,35 +210,28 @@ class RunnerBase:
 
             # print dataset statistics after concatenation/chaining
             for split_name in self.datasets:
-                if isinstance(self.datasets[split_name], tuple) or isinstance(
-                    self.datasets[split_name], list
-                ):
+                if isinstance(self.datasets[split_name], (tuple, list)):
                     # mixed wds.DataPipeline and torch.utils.data.Dataset
                     num_records = sum(
-                        [
-                            len(d)
-                            if not type(d) in [wds.DataPipeline, ChainDataset]
-                            else 0
-                            for d in self.datasets[split_name]
-                        ]
+                        len(d)
+                        if type(d) not in [wds.DataPipeline, ChainDataset]
+                        else 0
+                        for d in self.datasets[split_name]
                     )
 
+                elif hasattr(self.datasets[split_name], "__len__"):
+                    # a single map-style dataset
+                    num_records = len(self.datasets[split_name])
                 else:
-                    if hasattr(self.datasets[split_name], "__len__"):
-                        # a single map-style dataset
-                        num_records = len(self.datasets[split_name])
-                    else:
-                        # a single wds.DataPipeline
-                        num_records = -1
-                        logging.info(
-                            "Only a single wds.DataPipeline dataset, no __len__ attribute."
-                        )
+                    # a single wds.DataPipeline
+                    num_records = -1
+                    logging.info(
+                        "Only a single wds.DataPipeline dataset, no __len__ attribute."
+                    )
 
                 if num_records >= 0:
                     logging.info(
-                        "Loaded {} records for {} split from the dataset.".format(
-                            num_records, split_name
-                        )
+                        f"Loaded {num_records} records for {split_name} split from the dataset."
                     )
 
             # create dataloaders
@@ -258,7 +249,7 @@ class RunnerBase:
 
             collate_fns = []
             for dataset in datasets:
-                if isinstance(dataset, tuple) or isinstance(dataset, list):
+                if isinstance(dataset, (tuple, list)):
                     collate_fns.append([getattr(d, "collater", None) for d in dataset])
                 else:
                     collate_fns.append(getattr(dataset, "collater", None))
@@ -271,7 +262,7 @@ class RunnerBase:
                 collate_fns=collate_fns,
             )
 
-            self._dataloaders = {k: v for k, v in zip(split_names, dataloaders)}
+            self._dataloaders = dict(zip(split_names, dataloaders))
 
         return self._dataloaders
 
@@ -311,9 +302,7 @@ class RunnerBase:
 
     @property
     def test_splits(self):
-        test_splits = self.config.run_cfg.get("test_splits", [])
-
-        return test_splits
+        return self.config.run_cfg.get("test_splits", [])
 
     @property
     def train_splits(self):
@@ -341,9 +330,7 @@ class RunnerBase:
 
     @property
     def train_loader(self):
-        train_dataloader = self.dataloaders["train"]
-
-        return train_dataloader
+        return self.dataloaders["train"]
 
     def setup_output_dir(self):
         lib_root = Path(registry.get_path("library_root"))
@@ -381,30 +368,27 @@ class RunnerBase:
             # evaluation phase
             if len(self.valid_splits) > 0:
                 for split_name in self.valid_splits:
-                    logging.info("Evaluating on {}.".format(split_name))
+                    logging.info(f"Evaluating on {split_name}.")
 
                     val_log = self.eval_epoch(
                         split_name=split_name, cur_epoch=cur_epoch
                     )
-                    if val_log is not None:
-                        if is_main_process():
-                            assert (
-                                "agg_metrics" in val_log
-                            ), "No agg_metrics found in validation log."
+                    if val_log is not None and is_main_process():
+                        assert (
+                            "agg_metrics" in val_log
+                        ), "No agg_metrics found in validation log."
 
-                            agg_metrics = val_log["agg_metrics"]
-                            if agg_metrics > best_agg_metric and split_name == "val":
-                                best_epoch, best_agg_metric = cur_epoch, agg_metrics
+                        agg_metrics = val_log["agg_metrics"]
+                        if agg_metrics > best_agg_metric and split_name == "val":
+                            best_epoch, best_agg_metric = cur_epoch, agg_metrics
 
-                                self._save_checkpoint(cur_epoch, is_best=True)
+                            self._save_checkpoint(cur_epoch, is_best=True)
 
-                            val_log.update({"best_epoch": best_epoch})
-                            self.log_stats(val_log, split_name)
+                        val_log.update({"best_epoch": best_epoch})
+                        self.log_stats(val_log, split_name)
 
-            else:
-                # if no validation split is provided, we just save the checkpoint at the end of each epoch.
-                if not self.evaluate_only:
-                    self._save_checkpoint(cur_epoch, is_best=False)
+            elif not self.evaluate_only:
+                self._save_checkpoint(cur_epoch, is_best=False)
 
             if self.evaluate_only:
                 break
@@ -418,18 +402,18 @@ class RunnerBase:
 
         total_time = time.time() - start_time
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-        logging.info("Training time {}".format(total_time_str))
+        logging.info(f"Training time {total_time_str}")
 
     def evaluate(self, cur_epoch="best", skip_reload=False):
-        test_logs = dict()
-
         if len(self.test_splits) > 0:
-            for split_name in self.test_splits:
-                test_logs[split_name] = self.eval_epoch(
-                    split_name=split_name, cur_epoch=cur_epoch, skip_reload=skip_reload
+            return {
+                split_name: self.eval_epoch(
+                    split_name=split_name,
+                    cur_epoch=cur_epoch,
+                    skip_reload=skip_reload,
                 )
-
-            return test_logs
+                for split_name in self.test_splits
+            }
 
     def train_epoch(self, epoch):
         # train
@@ -460,7 +444,7 @@ class RunnerBase:
                 During testing, we will use provided weights and skip reloading the best checkpoint .
         """
         data_loader = self.dataloaders.get(split_name, None)
-        assert data_loader, "data_loader for split {} is None.".format(split_name)
+        assert data_loader, f"data_loader for split {split_name} is None."
 
         # TODO In validation, you need to compute loss as well as metrics
         # TODO consider moving to model.before_evaluation()
@@ -483,10 +467,7 @@ class RunnerBase:
             )
 
     def unwrap_dist_model(self, model):
-        if self.use_distributed:
-            return model.module
-        else:
-            return model
+        return model.module if self.use_distributed else model
 
     def create_loaders(
         self,
@@ -503,9 +484,7 @@ class RunnerBase:
 
         def _create_loader(dataset, num_workers, bsz, is_train, collate_fn):
             # create a single dataloader for each split
-            if isinstance(dataset, ChainDataset) or isinstance(
-                dataset, wds.DataPipeline
-            ):
+            if isinstance(dataset, (ChainDataset, wds.DataPipeline)):
                 # wds.WebdDataset instance are chained together
                 # webdataset.DataPipeline has its own sampler and collate_fn
                 loader = iter(
@@ -540,7 +519,7 @@ class RunnerBase:
                     sampler=sampler,
                     shuffle=sampler is None and is_train,
                     collate_fn=collate_fn,
-                    drop_last=True if is_train else False,
+                    drop_last=bool(is_train),
                 )
                 loader = PrefetchLoader(loader)
 
@@ -554,7 +533,7 @@ class RunnerBase:
         for dataset, bsz, is_train, collate_fn in zip(
             datasets, batch_sizes, is_trains, collate_fns
         ):
-            if isinstance(dataset, list) or isinstance(dataset, tuple):
+            if isinstance(dataset, (list, tuple)):
                 if hasattr(dataset[0], 'sample_ratio') and dataset_ratios is None:
                     dataset_ratios = [d.sample_ratio for d in dataset]
                 loader = MultiIterLoader(
@@ -582,7 +561,7 @@ class RunnerBase:
         }
         state_dict = model_no_ddp.state_dict()
         for k in list(state_dict.keys()):
-            if k in param_grad_dic.keys() and not param_grad_dic[k]:
+            if k in param_grad_dic and not param_grad_dic[k]:
                 # delete parameters that do not require gradient
                 del state_dict[k]
         save_obj = {
@@ -593,10 +572,9 @@ class RunnerBase:
             "epoch": cur_epoch,
         }
         save_to = os.path.join(
-            self.output_dir,
-            "checkpoint_{}.pth".format("best" if is_best else cur_epoch),
+            self.output_dir, f'checkpoint_{"best" if is_best else cur_epoch}.pth'
         )
-        logging.info("Saving checkpoint at epoch {} to {}.".format(cur_epoch, save_to))
+        logging.info(f"Saving checkpoint at epoch {cur_epoch} to {save_to}.")
         torch.save(save_obj, save_to)
 
     def _reload_best_model(self, model):
@@ -605,7 +583,7 @@ class RunnerBase:
         """
         checkpoint_path = os.path.join(self.output_dir, "checkpoint_best.pth")
 
-        logging.info("Loading checkpoint from {}.".format(checkpoint_path))
+        logging.info(f"Loading checkpoint from {checkpoint_path}.")
         checkpoint = torch.load(checkpoint_path, map_location="cpu")
         try:
             model.load_state_dict(checkpoint["model"])
@@ -641,7 +619,7 @@ class RunnerBase:
             self.scaler.load_state_dict(checkpoint["scaler"])
 
         self.start_epoch = checkpoint["epoch"] + 1
-        logging.info("Resume checkpoint from {}".format(url_or_filename))
+        logging.info(f"Resume checkpoint from {url_or_filename}")
 
     @main_process
     def log_stats(self, stats, split_name):
@@ -649,8 +627,6 @@ class RunnerBase:
             log_stats = {**{f"{split_name}_{k}": v for k, v in stats.items()}}
             with open(os.path.join(self.output_dir, "log.txt"), "a") as f:
                 f.write(json.dumps(log_stats) + "\n")
-        elif isinstance(stats, list):
-            pass
 
     @main_process
     def log_config(self):

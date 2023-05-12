@@ -55,12 +55,13 @@ def crop(image, target, region):
             if field in target:
                 target[field] = target[field][keep]
 
-    if os.environ.get("IPDB_SHILONG_DEBUG", None) == "INFO":
-        # for debug and visualization only.
-        if "strings_positive" in target:
-            target["strings_positive"] = [
-                _i for _i, _j in zip(target["strings_positive"], keep) if _j
-            ]
+    if (
+        os.environ.get("IPDB_SHILONG_DEBUG", None) == "INFO"
+        and "strings_positive" in target
+    ):
+        target["strings_positive"] = [
+            _i for _i, _j in zip(target["strings_positive"], keep) if _j
+        ]
 
     return cropped_image, target
 
@@ -218,9 +219,7 @@ class RandomHorizontalFlip(object):
         self.p = p
 
     def __call__(self, img, target):
-        if random.random() < self.p:
-            return hflip(img, target)
-        return img, target
+        return hflip(img, target) if random.random() < self.p else (img, target)
 
 
 class RandomResize(object):
@@ -303,7 +302,7 @@ class Compose(object):
         return image, target
 
     def __repr__(self):
-        format_string = self.__class__.__name__ + "("
+        format_string = f"{self.__class__.__name__}("
         for t in self.transforms:
             format_string += "\n"
             format_string += "    {0}".format(t)

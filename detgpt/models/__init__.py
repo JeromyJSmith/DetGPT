@@ -81,8 +81,8 @@ def load_preprocess(config):
             else BaseProcessor()
         )
 
-    vis_processors = dict()
-    txt_processors = dict()
+    vis_processors = {}
+    txt_processors = {}
 
     vis_proc_cfg = config.get("vis_processor")
     txt_proc_cfg = config.get("text_processor")
@@ -152,7 +152,7 @@ def load_model_and_preprocess(name, model_type, is_eval=False, device="cpu"):
             """
         )
 
-    if device == "cpu" or device == torch.device("cpu"):
+    if device in ["cpu", torch.device("cpu")]:
         model = model.float()
 
     return model.to(device), vis_processors, txt_processors
@@ -177,24 +177,20 @@ class ModelZoo:
 
     def __str__(self) -> str:
         return (
-            "=" * 50
+            (("=" * 50 + "\n" + f"{'Architectures':<30} Types\n") + "=" * 50)
             + "\n"
-            + f"{'Architectures':<30} {'Types'}\n"
-            + "=" * 50
-            + "\n"
-            + "\n".join(
-                [
-                    f"{name:<30} {', '.join(types)}"
-                    for name, types in self.model_zoo.items()
-                ]
-            )
+        ) + "\n".join(
+            [
+                f"{name:<30} {', '.join(types)}"
+                for name, types in self.model_zoo.items()
+            ]
         )
 
     def __iter__(self):
         return iter(self.model_zoo.items())
 
     def __len__(self):
-        return sum([len(v) for v in self.model_zoo.values()])
+        return sum(len(v) for v in self.model_zoo.values())
 
 
 model_zoo = ModelZoo()

@@ -31,11 +31,7 @@ def load_dataset(name, cfg_path=None, vis_path=None, data_type=None):
     >>> print([len(dataset[split]) for split in splits])
 
     """
-    if cfg_path is None:
-        cfg = None
-    else:
-        cfg = load_dataset_config(cfg_path)
-
+    cfg = None if cfg_path is None else load_dataset_config(cfg_path)
     try:
         builder = registry.get_builder_class(name)(cfg)
     except TypeError:
@@ -56,8 +52,7 @@ def load_dataset(name, cfg_path=None, vis_path=None, data_type=None):
 
         builder.config.build_info.get(data_type).storage = vis_path
 
-    dataset = builder.build_datasets()
-    return dataset
+    return builder.build_datasets()
 
 
 class DatasetZoo:

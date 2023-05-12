@@ -40,14 +40,14 @@ ckpt_filenmae = "groundingdino_swint_ogc.pth"
 
 
 def load_model_hf(model_config_path, repo_id, filename, device='cpu'):
-    args = SLConfig.fromfile(model_config_path) 
+    args = SLConfig.fromfile(model_config_path)
     model = build_model(args)
     args.device = device
 
     cache_file = hf_hub_download(repo_id=repo_id, filename=filename)
     checkpoint = torch.load(cache_file, map_location='cpu')
     log = model.load_state_dict(clean_state_dict(checkpoint['model']), strict=False)
-    print("Model loaded from {} \n => {}".format(cache_file, log))
+    print(f"Model loaded from {cache_file} \n => {log}")
     _ = model.eval()
     return model    
 
@@ -79,10 +79,7 @@ def run_grounding(input_image, grounding_caption, box_threshold, text_threshold)
     # run grounidng
     boxes, logits, phrases = predict(model, image_tensor, grounding_caption, box_threshold, text_threshold, device='cpu')
     annotated_frame = annotate(image_source=np.asarray(image_pil), boxes=boxes, logits=logits, phrases=phrases)
-    image_with_box = Image.fromarray(cv2.cvtColor(annotated_frame, cv2.COLOR_BGR2RGB))
-
-
-    return image_with_box
+    return Image.fromarray(cv2.cvtColor(annotated_frame, cv2.COLOR_BGR2RGB))
 
 if __name__ == "__main__":
 

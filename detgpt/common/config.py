@@ -123,7 +123,7 @@ class Config:
         if has_equal:
             return opts
 
-        return [(opt + "=" + value) for opt, value in zip(opts[0::2], opts[1::2])]
+        return [f"{opt}={value}" for opt, value in zip(opts[::2], opts[1::2])]
 
     def get_config(self):
         return self.config
@@ -205,7 +205,7 @@ class ConfigValidator:
     def __init__(self, description):
         self.description = description
 
-        self.arguments = dict()
+        self.arguments = {}
 
         self.parsed_args = None
 
@@ -251,7 +251,7 @@ class ConfigValidator:
     def format_help(self):
         # description + key-value pair string for each argument
         help_msg = str(self.description)
-        return help_msg + ", available arguments: " + self.format_arguments()
+        return f"{help_msg}, available arguments: {self.format_arguments()}"
 
     def print_help(self):
         # display help message
@@ -297,14 +297,14 @@ def create_runner_config_validator():
         "lr_sched",
         type=str,
         choices=lr_scheds_choices,
-        help="Learning rate scheduler to use, from {}".format(lr_scheds_choices),
+        help=f"Learning rate scheduler to use, from {lr_scheds_choices}",
     )
     task_choices = registry.list_tasks()
     validator.add_argument(
         "task",
         type=str,
         choices=task_choices,
-        help="Task to use, from {}".format(task_choices),
+        help=f"Task to use, from {task_choices}",
     )
     # add arguments for init_lr
     validator.add_argument(

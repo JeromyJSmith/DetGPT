@@ -24,7 +24,7 @@ def renorm(
 ) -> torch.FloatTensor:
     # img: tensor(3,H,W) or tensor(B,3,H,W)
     # return: same as img
-    assert img.dim() == 3 or img.dim() == 4, "img.dim() should be 3 or 4 but %d" % img.dim()
+    assert img.dim() in [3, 4], "img.dim() should be 3 or 4 but %d" % img.dim()
     if img.dim() == 3:
         assert img.size(0) == 3, 'img.size(0) shoule be 3 but "%d". (%s)' % (
             img.size(0),
@@ -78,7 +78,7 @@ def rainbow_text(x, y, ls, lc, **kw):
 
     # horizontal version
     for s, c in zip(ls, lc):
-        text = plt.text(x, y, " " + s + " ", color=c, transform=t, **kw)
+        text = plt.text(x, y, f" {s} ", color=c, transform=t, **kw)
         text.draw(fig.canvas.get_renderer())
         ex = text.get_window_extent()
         t = transforms.offset_copy(text._transform, x=ex.width, units="dots")
@@ -112,29 +112,19 @@ class COCOVisualizer:
 
         self.addtgt(tgt)
 
-        if tgt is None:
-            image_id = 0
-        elif "image_id" not in tgt:
-            image_id = 0
-        else:
-            image_id = tgt["image_id"]
-
+        image_id = 0 if tgt is None or "image_id" not in tgt else tgt["image_id"]
         if caption is None:
-            savename = "{}/{}-{}.png".format(
-                savedir, int(image_id), str(datetime.datetime.now()).replace(" ", "-")
-            )
+            savename = f'{savedir}/{int(image_id)}-{str(datetime.datetime.now()).replace(" ", "-")}.png'
         else:
-            savename = "{}/{}-{}-{}.png".format(
-                savedir, caption, int(image_id), str(datetime.datetime.now()).replace(" ", "-")
-            )
-        print("savename: {}".format(savename))
+            savename = f'{savedir}/{caption}-{int(image_id)}-{str(datetime.datetime.now()).replace(" ", "-")}.png'
+        print(f"savename: {savename}")
         os.makedirs(os.path.dirname(savename), exist_ok=True)
         plt.savefig(savename)
         plt.close()
 
     def addtgt(self, tgt):
         """ """
-        if tgt is None or not "boxes" in tgt:
+        if tgt is None or "boxes" not in tgt:
             ax = plt.gca()
 
             if "caption" in tgt:
@@ -177,7 +167,7 @@ class COCOVisualizer:
             ), f"{len(tgt['strings_positive'])} = {numbox}, "
             for idx, strlist in enumerate(tgt["strings_positive"]):
                 cate_id = int(tgt["labels"][idx])
-                _string = str(cate_id) + ":" + " ".join(strlist)
+                _string = f"{cate_id}:" + " ".join(strlist)
                 bbox_x, bbox_y, bbox_w, bbox_h = boxes[idx]
                 # ax.text(bbox_x, bbox_y, _string, color='black', bbox={'facecolor': 'yellow', 'alpha': 1.0, 'pad': 1})
                 ax.text(
@@ -236,7 +226,11 @@ class COCOVisualizer:
             datasetType = "captions"
         else:
             raise Exception("datasetType not supported")
-        if datasetType == "instances":
+        if datasetType == "captions":
+            for ann in anns:
+                print(ann["caption"])
+
+        elif datasetType == "instances":
             ax = plt.gca()
             ax.set_autoscale_on(False)
             polygons = []
@@ -247,18 +241,19 @@ class COCOVisualizer:
                     if type(ann["segmentation"]) == list:
                         # polygon
                         for seg in ann["segmentation"]:
-                            poly = np.array(seg).reshape((int(len(seg) / 2), 2))
+                            poly = np.array(seg).reshape((len(seg) // 2, 2))
                             polygons.append(Polygon(poly))
                             color.append(c)
                     else:
                         # mask
                         t = self.imgs[ann["image_id"]]
-                        if type(ann["segmentation"]["counts"]) == list:
-                            rle = maskUtils.frPyObjects(
+                        rle = (
+                            maskUtils.frPyObjects(
                                 [ann["segmentation"]], t["height"], t["width"]
                             )
-                        else:
-                            rle = [ann["segmentation"]]
+                            if type(ann["segmentation"]["counts"]) == list
+                            else [ann["segmentation"]]
+                        )
                         m = maskUtils.decode(rle)
                         img = np.ones((m.shape[0], m.shape[1], 3))
                         if ann["iscrowd"] == 1:
@@ -272,7 +267,7 @@ class COCOVisualizer:
                     # turn skeleton into zero-based index
                     sks = np.array(self.loadCats(ann["category_id"])[0]["skeleton"]) - 1
                     kp = np.array(ann["keypoints"])
-                    x = kp[0::3]
+                    x = kp[::3]
                     y = kp[1::3]
                     v = kp[2::3]
                     for sk in sks:
@@ -313,6 +308,3 @@ class COCOVisualizer:
             # ax.add_collection(p)
             p = PatchCollection(polygons, facecolor="none", edgecolors=color, linewidths=2)
             ax.add_collection(p)
-        elif datasetType == "captions":
-            for ann in anns:
-                print(ann["caption"])

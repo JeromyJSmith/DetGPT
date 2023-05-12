@@ -25,19 +25,18 @@ class CCSBUBuilder(BaseDatasetBuilder):
 
         build_info = self.config.build_info
 
-        datasets = dict()
         split = "train"
 
         # create datasets
         # [NOTE] return inner_datasets (wds.DataPipeline)
         dataset_cls = self.train_dataset_cls
-        datasets[split] = dataset_cls(
-            vis_processor=self.vis_processors[split],
-            text_processor=self.text_processors[split],
-            location=build_info.storage,
-        ).inner_dataset
-
-        return datasets
+        return {
+            split: dataset_cls(
+                vis_processor=self.vis_processors[split],
+                text_processor=self.text_processors[split],
+                location=build_info.storage,
+            ).inner_dataset
+        }
 
 
 @registry.register_builder("laion")
@@ -57,19 +56,18 @@ class LaionBuilder(BaseDatasetBuilder):
 
         build_info = self.config.build_info
 
-        datasets = dict()
         split = "train"
 
         # create datasets
         # [NOTE] return inner_datasets (wds.DataPipeline)
         dataset_cls = self.train_dataset_cls
-        datasets[split] = dataset_cls(
-            vis_processor=self.vis_processors[split],
-            text_processor=self.text_processors[split],
-            location=build_info.storage,
-        ).inner_dataset
-
-        return datasets
+        return {
+            split: dataset_cls(
+                vis_processor=self.vis_processors[split],
+                text_processor=self.text_processors[split],
+                location=build_info.storage,
+            ).inner_dataset
+        }
 
 
 @registry.register_builder("cc_sbu_align")
@@ -90,22 +88,19 @@ class CCSBUAlignBuilder(BaseDatasetBuilder):
         storage_path = build_info.storage
         file_path = build_info.file_path
 
-        datasets = dict()
-
         if not os.path.exists(storage_path):
-            warnings.warn("storage path {} does not exist.".format(storage_path))
+            warnings.warn(f"storage path {storage_path} does not exist.")
 
         # create datasets
         dataset_cls = self.train_dataset_cls
-        datasets['train'] = dataset_cls(
-            vis_processor=self.vis_processors["train"],
-            text_processor=self.text_processors["train"],
-            # ann_paths=[os.path.join(storage_path, 'filter_cap.json')],
-            ann_paths=[os.path.join(storage_path, file_path)],
-            vis_root=os.path.join(storage_path, 'image'),
-        )
-
-        return datasets
+        return {
+            'train': dataset_cls(
+                vis_processor=self.vis_processors["train"],
+                text_processor=self.text_processors["train"],
+                ann_paths=[os.path.join(storage_path, file_path)],
+                vis_root=os.path.join(storage_path, 'image'),
+            )
+        }
 
 
 @registry.register_builder("coco_align")
@@ -125,19 +120,17 @@ class COCOAlignBuilder(BaseDatasetBuilder):
         storage_path = build_info.storage
         file_name = build_info.file_name
 
-        datasets = dict()
-
         if not os.path.exists(storage_path):
-            warnings.warn("storage path {} does not exist.".format(storage_path))
+            warnings.warn(f"storage path {storage_path} does not exist.")
 
         # create datasets
         dataset_cls = self.train_dataset_cls
-        datasets['train'] = dataset_cls(
-            vis_processor=self.vis_processors["train"],
-            text_processor=self.text_processors["train"],
-            ann_paths=[os.path.join(storage_path, file_name)],
-            vis_root=os.path.join(storage_path, 'val2017'),
-        )
-
-        return datasets
+        return {
+            'train': dataset_cls(
+                vis_processor=self.vis_processors["train"],
+                text_processor=self.text_processors["train"],
+                ann_paths=[os.path.join(storage_path, file_name)],
+                vis_root=os.path.join(storage_path, 'val2017'),
+            )
+        }
 

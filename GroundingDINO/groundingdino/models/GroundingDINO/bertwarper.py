@@ -203,7 +203,7 @@ def generate_masks_with_special_tokens(tokenized, special_tokens_list, tokenizer
     previous_col = 0
     for i in range(idxs.shape[0]):
         row, col = idxs[i]
-        if (col == 0) or (col == num_token - 1):
+        if col in [0, num_token - 1]:
             attention_mask[row, col, col] = True
             position_ids[row, col] = 0
         else:
@@ -248,7 +248,7 @@ def generate_masks_with_special_tokens_and_transfer_map(tokenized, special_token
     previous_col = 0
     for i in range(idxs.shape[0]):
         row, col = idxs[i]
-        if (col == 0) or (col == num_token - 1):
+        if col in [0, num_token - 1]:
             attention_mask[row, col, col] = True
             position_ids[row, col] = 0
         else:

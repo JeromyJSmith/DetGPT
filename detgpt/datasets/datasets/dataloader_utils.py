@@ -26,7 +26,7 @@ class MultiIterLoader:
         for loader in loaders:
             assert hasattr(
                 loader, "__next__"
-            ), "Loader {} has no __next__ method.".format(loader)
+            ), f"Loader {loader} has no __next__ method."
 
         if ratios is None:
             ratios = [1.0] * len(loaders)
@@ -64,7 +64,6 @@ class PrefetchLoader(object):
             if is_tuple:
                 task, batch = batch
 
-            if is_tuple:
                 yield task, batch
             else:
                 yield batch
@@ -107,21 +106,18 @@ class PrefetchLoader(object):
         return batch
 
     def __getattr__(self, name):
-        method = self.loader.__getattribute__(name)
-        return method
+        return self.loader.__getattribute__(name)
 
 
 def record_cuda_stream(batch):
     if isinstance(batch, torch.Tensor):
         batch.record_stream(torch.cuda.current_stream())
-    elif isinstance(batch, list) or isinstance(batch, tuple):
+    elif isinstance(batch, (list, tuple)):
         for t in batch:
             record_cuda_stream(t)
     elif isinstance(batch, dict):
         for t in batch.values():
             record_cuda_stream(t)
-    else:
-        pass
 
 
 class IterLoader:

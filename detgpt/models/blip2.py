@@ -85,7 +85,7 @@ class Blip2Base(BaseModel):
         msg = self.load_state_dict(state_dict, strict=False)
 
         # logging.info("Missing keys {}".format(msg.missing_keys))
-        logging.info("load checkpoint from %s" % url_or_filename)
+        logging.info(f"load checkpoint from {url_or_filename}")
 
         return msg
 
@@ -216,6 +216,6 @@ def compute_sim_matrix(model, data_loader, **kwargs):
 
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-    logging.info("Evaluation time {}".format(total_time_str))
+    logging.info(f"Evaluation time {total_time_str}")
 
     return score_matrix_i2t.cpu().numpy(), score_matrix_t2i.cpu().numpy()
