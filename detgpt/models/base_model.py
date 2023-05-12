@@ -50,8 +50,8 @@ class BaseModel(nn.Module):
 
         msg = self.load_state_dict(state_dict, strict=False)
 
-        logging.info("Missing keys {}".format(msg.missing_keys))
-        logging.info("load checkpoint from %s" % url_or_filename)
+        logging.info(f"Missing keys {msg.missing_keys}")
+        logging.info(f"load checkpoint from {url_or_filename}")
 
         return msg
 
@@ -75,7 +75,7 @@ class BaseModel(nn.Module):
     def default_config_path(cls, model_type):
         assert (
             model_type in cls.PRETRAINED_MODEL_CONFIG_DICT
-        ), "Unknown model type {}".format(model_type)
+        ), f"Unknown model type {model_type}"
         return get_abs_path(cls.PRETRAINED_MODEL_CONFIG_DICT[model_type])
 
     def load_checkpoint_from_config(self, cfg, **kwargs):
@@ -86,8 +86,7 @@ class BaseModel(nn.Module):
         When loading the pretrained model, each task-specific architecture may define their
         own load_from_pretrained() method.
         """
-        load_finetuned = cfg.get("load_finetuned", True)
-        if load_finetuned:
+        if load_finetuned := cfg.get("load_finetuned", True):
             finetune_path = cfg.get("finetuned", None)
             assert (
                 finetune_path is not None
@@ -109,13 +108,12 @@ class BaseModel(nn.Module):
             for x in p.shape:
                 w *= x
             tot += w
-        if return_str:
-            if tot >= 1e6:
-                return "{:.1f}M".format(tot / 1e6)
-            else:
-                return "{:.1f}K".format(tot / 1e3)
-        else:
+        if not return_str:
             return tot
+        if tot >= 1e6:
+            return "{:.1f}M".format(tot / 1e6)
+        else:
+            return "{:.1f}K".format(tot / 1e3)
 
 
 class BaseEncoder(nn.Module):
@@ -232,8 +230,7 @@ def concat_all_gather(tensor):
     ]
     torch.distributed.all_gather(tensors_gather, tensor, async_op=False)
 
-    output = torch.cat(tensors_gather, dim=0)
-    return output
+    return torch.cat(tensors_gather, dim=0)
 
 
 def tile(x, dim, n_tile):

@@ -122,8 +122,8 @@ class DetGPT(Blip2Base):
                 raw_prompts = f.read().splitlines()
             filted_prompts = [raw_prompt for raw_prompt in raw_prompts if "<ImageHere>" in raw_prompt]
             self.prompt_list = [prompt_template.format(p) for p in filted_prompts]
-            print('Load {} training prompts'.format(len(self.prompt_list)))
-            print('Prompt Example \n{}'.format(random.choice(self.prompt_list)))
+            print(f'Load {len(self.prompt_list)} training prompts')
+            print(f'Prompt Example \n{random.choice(self.prompt_list)}')
         else:
             self.prompt_list = []
 
@@ -156,34 +156,27 @@ class DetGPT(Blip2Base):
         return inputs_llama, atts_llama
 
     def prompt_wrap(self, img_embeds, atts_img, prompt):
-        if prompt:
-            if type(prompt) is str:
-                batch_size = img_embeds.shape[0]
-                p_before, p_after = prompt.split('<ImageHere>')
-                p_before_tokens = self.llama_tokenizer(
-                    p_before, return_tensors="pt", add_special_tokens=False).to(img_embeds.device)
-                p_after_tokens = self.llama_tokenizer(
-                    p_after, return_tensors="pt", add_special_tokens=False).to(img_embeds.device)
-                p_before_embeds = self.llama_model.model.embed_tokens(p_before_tokens.input_ids).expand(batch_size, -1, -1)
-                p_after_embeds = self.llama_model.model.embed_tokens(p_after_tokens.input_ids).expand(batch_size, -1, -1)
-                wrapped_img_embeds = torch.cat([p_before_embeds, img_embeds, p_after_embeds], dim=1)
-                wrapped_atts_img = atts_img[:, :1].expand(-1, wrapped_img_embeds.shape[1])
-                return wrapped_img_embeds, wrapped_atts_img
-            else:
-                batch_size = img_embeds.shape[0]
-                prompt_splitted = [p.split('<ImageHere>') for p in prompt]
-                p_before, p_after = [x[0] for x in prompt_splitted], [x[1] for x in prompt_splitted]
-                p_before_tokens = self.llama_tokenizer(
-                    p_before, return_tensors="pt", add_special_tokens=False, padding="longest", truncation=True,).to(img_embeds.device)
-                p_after_tokens = self.llama_tokenizer(
-                    p_after, return_tensors="pt", add_special_tokens=False,  padding="longest", truncation=True,).to(img_embeds.device)
-                p_before_embeds = self.llama_model.model.embed_tokens(p_before_tokens.input_ids).expand(batch_size, -1, -1)
-                p_after_embeds = self.llama_model.model.embed_tokens(p_after_tokens.input_ids).expand(batch_size, -1, -1)
-                wrapped_img_embeds = torch.cat([p_before_embeds, img_embeds, p_after_embeds], dim=1)
-                wrapped_atts_img = atts_img[:, :1].expand(-1, wrapped_img_embeds.shape[1])
-                return wrapped_img_embeds, wrapped_atts_img
-        else:
+        if not prompt:
             return img_embeds, atts_img
+        batch_size = img_embeds.shape[0]
+        if type(prompt) is str:
+            p_before, p_after = prompt.split('<ImageHere>')
+            p_before_tokens = self.llama_tokenizer(
+                p_before, return_tensors="pt", add_special_tokens=False).to(img_embeds.device)
+            p_after_tokens = self.llama_tokenizer(
+                p_after, return_tensors="pt", add_special_tokens=False).to(img_embeds.device)
+        else:
+            prompt_splitted = [p.split('<ImageHere>') for p in prompt]
+            p_before, p_after = [x[0] for x in prompt_splitted], [x[1] for x in prompt_splitted]
+            p_before_tokens = self.llama_tokenizer(
+                p_before, return_tensors="pt", add_special_tokens=False, padding="longest", truncation=True,).to(img_embeds.device)
+            p_after_tokens = self.llama_tokenizer(
+                p_after, return_tensors="pt", add_special_tokens=False,  padding="longest", truncation=True,).to(img_embeds.device)
+        p_before_embeds = self.llama_model.model.embed_tokens(p_before_tokens.input_ids).expand(batch_size, -1, -1)
+        p_after_embeds = self.llama_model.model.embed_tokens(p_after_tokens.input_ids).expand(batch_size, -1, -1)
+        wrapped_img_embeds = torch.cat([p_before_embeds, img_embeds, p_after_embeds], dim=1)
+        wrapped_atts_img = atts_img[:, :1].expand(-1, wrapped_img_embeds.shape[1])
+        return wrapped_img_embeds, wrapped_atts_img
 
     def forward(self, samples):
         image = samples["image"]
@@ -199,7 +192,7 @@ class DetGPT(Blip2Base):
                 description = samples['description']
             else:
                 description = [""]*len(task)
-            task_prompt = ['###Human: <Img><ImageHere></Img> '+ t for t in task]
+            task_prompt = [f'###Human: <Img><ImageHere></Img> {t}' for t in task]
             img_embeds, atts_img = self.prompt_wrap(img_embeds, atts_img, task_prompt)
             answer = samples['answer']
             text_input = [d + a for (d,a) in zip(description, answer)]
@@ -294,9 +287,8 @@ class DetGPT(Blip2Base):
             device_8bit=device_8bit,
         )
 
-        ckpt_path = cfg.get("ckpt", "")
-        if ckpt_path:
-            print("Load BLIP2-LLM Checkpoint: {}".format(ckpt_path))
+        if ckpt_path := cfg.get("ckpt", ""):
+            print(f"Load BLIP2-LLM Checkpoint: {ckpt_path}")
             print(f"ckpt_path: {ckpt_path}")
             ckpt = torch.load(ckpt_path, map_location="cpu")
             msg = model.load_state_dict(ckpt['model'], strict=False)

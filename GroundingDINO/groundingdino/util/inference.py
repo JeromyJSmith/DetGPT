@@ -20,9 +20,7 @@ from groundingdino.util.utils import get_phrases_from_posmap
 
 def preprocess_caption(caption: str) -> str:
     result = caption.lower().strip()
-    if result.endswith("."):
-        return result
-    return result + "."
+    return result if result.endswith(".") else f"{result}."
 
 
 def load_model(model_config_path: str, model_checkpoint_path: str, device: str = "cuda"):

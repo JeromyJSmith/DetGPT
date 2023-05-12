@@ -44,7 +44,7 @@ class BaseTask:
             dict: Dictionary of torch.utils.data.Dataset objects by split.
         """
 
-        datasets = dict()
+        datasets = {}
 
         datasets_config = cfg.datasets_cfg
 
@@ -65,8 +65,7 @@ class BaseTask:
         return datasets
 
     def train_step(self, model, samples):
-        loss = model(samples)["loss"]
-        return loss
+        return model(samples)["loss"]
 
     def valid_step(self, model, samples):
         raise NotImplementedError
@@ -184,18 +183,16 @@ class BaseTask:
 
         # if iter-based runner, schedule lr based on inner epoch.
         logging.info(
-            "Start training epoch {}, {} iters per inner epoch.".format(
-                epoch, iters_per_epoch
-            )
+            f"Start training epoch {epoch}, {iters_per_epoch} iters per inner epoch."
         )
-        header = "Train: data epoch: [{}]".format(epoch)
+        header = f"Train: data epoch: [{epoch}]"
         if start_iters is None:
             # epoch-based runner
             inner_epoch = epoch
         else:
             # In iter-based runner, we schedule the learning rate based on iterations.
             inner_epoch = start_iters // iters_per_epoch
-            header = header + "; inner epoch [{}]".format(inner_epoch)
+            header += f"; inner epoch [{inner_epoch}]"
 
         for i in metric_logger.log_every(range(iters_per_epoch), log_freq, header):
             # if using iter-based runner, we stop after iters_per_epoch iterations.
@@ -239,7 +236,7 @@ class BaseTask:
         # after train_epoch()
         # gather the stats from all processes
         metric_logger.synchronize_between_processes()
-        logging.info("Averaged stats: " + str(metric_logger.global_avg()))
+        logging.info(f"Averaged stats: {str(metric_logger.global_avg())}")
         return {
             k: "{:.3f}".format(meter.global_avg)
             for k, meter in metric_logger.meters.items()
@@ -252,7 +249,7 @@ class BaseTask:
         result_file = os.path.join(
             result_dir, "%s_rank%d.json" % (filename, get_rank())
         )
-        final_result_file = os.path.join(result_dir, "%s.json" % filename)
+        final_result_file = os.path.join(result_dir, f"{filename}.json")
 
         json.dump(result, open(result_file, "w"))
 
@@ -281,6 +278,6 @@ class BaseTask:
                 result = result_new
 
             json.dump(result, open(final_result_file, "w"))
-            print("result file saved to %s" % final_result_file)
+            print(f"result file saved to {final_result_file}")
 
         return final_result_file

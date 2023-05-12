@@ -13,7 +13,7 @@ class CCSBUAlignDataset(CaptionDataset):
         # TODO this assumes image input, not general enough
         ann = self.annotation[index]
 
-        img_file = '{}.jpg'.format(ann["image_id"])
+        img_file = f'{ann["image_id"]}.jpg'
         image_path = os.path.join(self.vis_root, img_file)
         image = Image.open(image_path).convert("RGB")
 

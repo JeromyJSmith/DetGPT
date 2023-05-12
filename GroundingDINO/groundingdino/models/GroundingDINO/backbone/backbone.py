@@ -49,7 +49,7 @@ class FrozenBatchNorm2d(torch.nn.Module):
     def _load_from_state_dict(
         self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs
     ):
-        num_batches_tracked_key = prefix + "num_batches_tracked"
+        num_batches_tracked_key = f"{prefix}num_batches_tracked"
         if num_batches_tracked_key in state_dict:
             del state_dict[num_batches_tracked_key]
 
@@ -88,12 +88,10 @@ class BackboneBase(nn.Module):
             ):
                 parameter.requires_grad_(False)
 
-        return_layers = {}
-        for idx, layer_index in enumerate(return_interm_indices):
-            return_layers.update(
-                {"layer{}".format(5 - len(return_interm_indices) + idx): "{}".format(layer_index)}
-            )
-
+        return_layers = {
+            f"layer{5 - len(return_interm_indices) + idx}": f"{layer_index}"
+            for idx, layer_index in enumerate(return_interm_indices)
+        }
         # if len:
         #     if use_stage1_feature:
         #         return_layers = {"layer1": "0", "layer2": "1", "layer3": "2", "layer4": "3"}
@@ -127,14 +125,14 @@ class Backbone(BackboneBase):
         return_interm_indices: list,
         batch_norm=FrozenBatchNorm2d,
     ):
-        if name in ["resnet18", "resnet34", "resnet50", "resnet101"]:
+        if name in {"resnet18", "resnet34", "resnet50", "resnet101"}:
             backbone = getattr(torchvision.models, name)(
                 replace_stride_with_dilation=[False, False, dilation],
                 pretrained=is_main_process(),
                 norm_layer=batch_norm,
             )
         else:
-            raise NotImplementedError("Why you can get here with name {}".format(name))
+            raise NotImplementedError(f"Why you can get here with name {name}")
         # num_channels = 512 if name in ('resnet18', 'resnet34') else 2048
         assert name not in ("resnet18", "resnet34"), "Only resnet50 and resnet101 are available."
         assert return_interm_indices in [[0, 1, 2, 3], [1, 2, 3], [3]]
@@ -206,7 +204,7 @@ def build_backbone(args):
 
         bb_num_channels = backbone.num_features[4 - len(return_interm_indices) :]
     else:
-        raise NotImplementedError("Unknown backbone {}".format(args.backbone))
+        raise NotImplementedError(f"Unknown backbone {args.backbone}")
 
     assert len(bb_num_channels) == len(
         return_interm_indices
@@ -216,6 +214,6 @@ def build_backbone(args):
     model.num_channels = bb_num_channels
     assert isinstance(
         bb_num_channels, List
-    ), "bb_num_channels is expected to be a List but {}".format(type(bb_num_channels))
+    ), f"bb_num_channels is expected to be a List but {type(bb_num_channels)}"
     # import ipdb; ipdb.set_trace()
     return model

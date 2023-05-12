@@ -29,8 +29,7 @@ class FeatureResizer(nn.Module):
         x = self.fc(encoder_features)
         if self.do_ln:
             x = self.layer_norm(x)
-        output = self.dropout(x)
-        return output
+        return self.dropout(x)
 
 
 def l1norm(X, dim, eps=1e-8):

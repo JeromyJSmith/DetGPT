@@ -74,14 +74,14 @@ def build_captions_and_token_span(cat_list, force_lowercase):
             if len(subname) == 0:
                 continue
             if len(captions) > 0:
-                captions = captions + " "
+                captions = f"{captions} "
             strat_idx = len(captions)
             end_idx = strat_idx + len(subname)
             tokens_positive_i.append([strat_idx, end_idx])
             captions = captions + subname
 
-        if len(tokens_positive_i) > 0:
-            captions = captions + " ."
+        if tokens_positive_i:
+            captions = f"{captions} ."
             cat2tokenspan[class_name] = tokens_positive_i
 
     return captions, cat2tokenspan

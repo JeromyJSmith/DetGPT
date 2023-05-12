@@ -113,19 +113,19 @@ class SLConfig(object):
             base_filename = cfg_dict.pop(BASE_KEY)
             base_filename = base_filename if isinstance(base_filename, list) else [base_filename]
 
-            cfg_dict_list = list()
-            cfg_text_list = list()
+            cfg_dict_list = []
+            cfg_text_list = []
             for f in base_filename:
                 _cfg_dict, _cfg_text = SLConfig._file2dict(osp.join(cfg_dir, f))
                 cfg_dict_list.append(_cfg_dict)
                 cfg_text_list.append(_cfg_text)
 
-            base_cfg_dict = dict()
+            base_cfg_dict = {}
             for c in cfg_dict_list:
                 if len(base_cfg_dict.keys() & c.keys()) > 0:
                     raise KeyError("Duplicate key is not allowed among bases")
                     # TODO Allow the duplicate key while warnning user
-                base_cfg_dict.update(c)
+                base_cfg_dict |= c
 
             base_cfg_dict = SLConfig._merge_a_into_b(cfg_dict, base_cfg_dict)
             cfg_dict = base_cfg_dict
@@ -157,7 +157,9 @@ class SLConfig(object):
         for k, v in a.items():
             if isinstance(v, dict) and k in b and not v.pop(DELETE_KEY, False):
 
-                if not isinstance(b[k], dict) and not isinstance(b[k], list):
+                if isinstance(b[k], (dict, list)):
+                    b[k] = SLConfig._merge_a_into_b(v, b[k])
+                else:
                     # if :
                     # import ipdb; ipdb.set_trace()
                     raise TypeError(
@@ -166,7 +168,6 @@ class SLConfig(object):
                         f"type {type(b[k])} in base config. You may set "
                         f"`{DELETE_KEY}=True` to ignore the base config"
                     )
-                b[k] = SLConfig._merge_a_into_b(v, b[k])
             elif isinstance(b, list):
                 try:
                     _ = int(k)
@@ -187,7 +188,7 @@ class SLConfig(object):
 
     def __init__(self, cfg_dict=None, cfg_text=None, filename=None):
         if cfg_dict is None:
-            cfg_dict = dict()
+            cfg_dict = {}
         elif not isinstance(cfg_dict, dict):
             raise TypeError("cfg_dict must be a dict, but " f"got {type(cfg_dict)}")
         for key in cfg_dict:
@@ -229,11 +230,7 @@ class SLConfig(object):
             return s
 
         def _format_basic_types(k, v, use_mapping=False):
-            if isinstance(v, str):
-                v_str = f"'{v}'"
-            else:
-                v_str = str(v)
-
+            v_str = f"'{v}'" if isinstance(v, str) else str(v)
             if use_mapping:
                 k_str = f"'{k}'" if isinstance(k, str) else str(k)
                 attr_str = f"{k_str}: {v_str}"
@@ -255,7 +252,7 @@ class SLConfig(object):
                     attr_str = f"{k_str}: {v_str}"
                 else:
                     attr_str = f"{str(k)}={v_str}"
-                attr_str = _indent(attr_str, indent) + "]"
+                attr_str = f"{_indent(attr_str, indent)}]"
             else:
                 attr_str = _format_basic_types(k, v, use_mapping)
             return attr_str
@@ -283,7 +280,7 @@ class SLConfig(object):
                         attr_str = f"{k_str}: dict({v_str}"
                     else:
                         attr_str = f"{str(k)}=dict({v_str}"
-                    attr_str = _indent(attr_str, indent) + ")" + end
+                    attr_str = f"{_indent(attr_str, indent)}){end}"
                 elif isinstance(v, list):
                     attr_str = _format_list(k, v, use_mapping) + end
                 else:
@@ -343,12 +340,10 @@ class SLConfig(object):
         return iter(self._cfg_dict)
 
     def dump(self, file=None):
-        # import ipdb; ipdb.set_trace()
         if file is None:
             return self.pretty_text
-        else:
-            with open(file, "w") as f:
-                f.write(self.pretty_text)
+        with open(file, "w") as f:
+            f.write(self.pretty_text)
 
     def merge_from_dict(self, options):
         """Merge list into cfg_dict
@@ -411,10 +406,8 @@ class DictAction(Action):
         except ValueError:
             pass
         if val.lower() in ["true", "false"]:
-            return True if val.lower() == "true" else False
-        if val.lower() in ["none", "null"]:
-            return None
-        return val
+            return val.lower() == "true"
+        return None if val.lower() in ["none", "null"] else val
 
     def __call__(self, parser, namespace, values, option_string=None):
         options = {}

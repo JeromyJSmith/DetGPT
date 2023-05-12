@@ -54,9 +54,7 @@ class BaseDatasetBuilder:
 
         # at this point, all the annotations and image/videos should be all downloaded to the specified locations.
         logging.info("Building datasets...")
-        datasets = self.build()  # dataset['train'/'val'/'test']
-
-        return datasets
+        return self.build()
 
     def build_processors(self):
         vis_proc_cfg = self.config.get("vis_processor")
@@ -135,14 +133,12 @@ class BaseDatasetBuilder:
                     if not os.path.exists(dst):
                         shutil.copyfile(src=src, dst=dst)
                     else:
-                        logging.info("Using existing file {}.".format(dst))
+                        logging.info(f"Using existing file {dst}.")
                 else:
                     if os.path.isdir(storage_path):
                         # if only dirname is provided, suffix with basename of URL.
                         raise ValueError(
-                            "Expecting storage_path to be a file path, got directory {}".format(
-                                storage_path
-                            )
+                            f"Expecting storage_path to be a file path, got directory {storage_path}"
                         )
                     else:
                         filename = os.path.basename(storage_path)
@@ -176,7 +172,7 @@ class BaseDatasetBuilder:
         ann_info = build_info.annotations
         vis_info = build_info.get(self.data_type)
 
-        datasets = dict()
+        datasets = {}
         for split in ann_info.keys():
             if split not in ["train", "val", "test"]:
                 continue
@@ -215,7 +211,7 @@ class BaseDatasetBuilder:
                 vis_path = utils.get_cache_path(vis_path)
 
             if not os.path.exists(vis_path):
-                warnings.warn("storage path {} does not exist.".format(vis_path))
+                warnings.warn(f"storage path {vis_path} does not exist.")
 
             # create datasets
             dataset_cls = self.train_dataset_cls if is_train else self.eval_dataset_cls

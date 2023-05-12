@@ -16,9 +16,9 @@ from torch import Tensor, nn
 def _get_clones(module, N, layer_share=False):
     # import ipdb; ipdb.set_trace()
     if layer_share:
-        return nn.ModuleList([module for i in range(N)])
+        return nn.ModuleList([module for _ in range(N)])
     else:
-        return nn.ModuleList([copy.deepcopy(module) for i in range(N)])
+        return nn.ModuleList([copy.deepcopy(module) for _ in range(N)])
 
 
 def get_sine_pos_embed(
@@ -162,10 +162,7 @@ def sigmoid_focal_loss(
         alpha_t = alpha * targets + (1 - alpha) * (1 - targets)
         loss = alpha_t * loss
 
-    if no_reduction:
-        return loss
-
-    return loss.mean(1).sum() / num_boxes
+    return loss if no_reduction else loss.mean(1).sum() / num_boxes
 
 
 class MLP(nn.Module):
@@ -226,7 +223,7 @@ def gen_sineembed_for_position(pos_tensor):
 
         pos = torch.cat((pos_y, pos_x, pos_w, pos_h), dim=2)
     else:
-        raise ValueError("Unknown pos_tensor shape(-1):{}".format(pos_tensor.size(-1)))
+        raise ValueError(f"Unknown pos_tensor shape(-1):{pos_tensor.size(-1)}")
     return pos
 
 

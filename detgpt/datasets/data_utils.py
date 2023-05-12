@@ -109,7 +109,7 @@ def reorg_datasets_by_split(datasets):
     # if len(datasets) == 1:
     #     return datasets[list(datasets.keys())[0]]
     # else:
-    reorg_datasets = dict()
+    reorg_datasets = {}
 
     # reorganize by split
     for _, dataset in datasets.items():
@@ -150,17 +150,13 @@ def concat_datasets(datasets):
         if split_name != "train":
             assert (
                 len(datasets[split_name]) == 1
-            ), "Do not support multiple {} datasets.".format(split_name)
+            ), f"Do not support multiple {split_name} datasets."
             datasets[split_name] = datasets[split_name][0]
         else:
             iterable_datasets, map_datasets = [], []
             for dataset in datasets[split_name]:
                 if isinstance(dataset, wds.DataPipeline):
-                    logging.info(
-                        "Dataset {} is IterableDataset, can't be concatenated.".format(
-                            dataset
-                        )
-                    )
+                    logging.info(f"Dataset {dataset} is IterableDataset, can't be concatenated.")
                     iterable_datasets.append(dataset)
                 elif isinstance(dataset, IterableDataset):
                     raise NotImplementedError(
@@ -180,12 +176,10 @@ def concat_datasets(datasets):
             else:
                 chained_datasets = None
 
-            concat_datasets = (
-                ConcatDataset(map_datasets) if len(map_datasets) > 0 else None
-            )
+            concat_datasets = ConcatDataset(map_datasets) if map_datasets else None
 
             train_datasets = concat_datasets, chained_datasets
-            train_datasets = tuple([x for x in train_datasets if x is not None])
+            train_datasets = tuple(x for x in train_datasets if x is not None)
             train_datasets = (
                 train_datasets[0] if len(train_datasets) == 1 else train_datasets
             )
