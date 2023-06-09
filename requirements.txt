@@ -46,7 +46,7 @@ pycocoevalcap
 sentence-transformers
 umap-learn
 notebook
-gradio==3.24.1
+gradio==3.34.0
 gradio-client==0.0.8
 wandb
 addict
